@@ -568,9 +568,33 @@ async def spar(premise: str):
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+    if len(sys.argv) >= 2 and sys.argv[1] in ("-h", "--help"):
         print(__doc__)
         sys.exit(0)
 
-    premise = sys.argv[1]
+    # Check if premise was passed as arg or needs interactive input
+    non_flag_args = [a for a in sys.argv[1:] if not a.startswith("--") and
+                     (sys.argv.index(a) == 1 or not sys.argv[sys.argv.index(a) - 1].startswith("--"))]
+
+    if non_flag_args:
+        premise = non_flag_args[0]
+    else:
+        console.print()
+        console.print("[bold]SPAR[/bold] — paste your premise below. Can be multiple lines.")
+        console.print("[dim]Press Enter twice when done.[/dim]\n")
+        lines = []
+        while True:
+            try:
+                line = input()
+                if line == "" and lines and lines[-1] == "":
+                    lines.pop()  # remove trailing blank
+                    break
+                lines.append(line)
+            except EOFError:
+                break
+        premise = "\n".join(lines).strip()
+        if not premise:
+            console.print("[red]No premise entered. Exiting.[/red]")
+            sys.exit(1)
+
     asyncio.run(spar(premise))
