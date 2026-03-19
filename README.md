@@ -2,9 +2,9 @@
 
 # SPAR
 
-**5 AI agents beat the shit out of your ideas until a real gem survives.**
+5 AI agents beat the shit out of your ideas until a real gem survives.
 
-*Then a VC tries to kill it.*
+Then a VC tries to kill it.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-required-orange.svg)](https://claude.ai/code)
@@ -14,32 +14,30 @@
 
 ---
 
-SPAR is an adversarial idea sparring tool powered by 5 autonomous AI agents. Each agent has a distinct role, does live web research, and fights with real evidence. Ideas get pressure-tested through multiple rounds of attack, defense, and evaluation — then face a VC due diligence review before earning a final verdict.
+You type a half-baked idea. Two agents fight over it for 12 rounds with live web research. One builds, one destroys. A judge with impossible standards decides when it's good enough. If it passes, a VC does full due diligence and tries to kill it again. At the end you get a summary you can actually use.
 
-Every agent runs on **Claude Opus** with extended thinking, full web research access, and shared conversation history across all rounds.
+Works with Claude Max (no API key needed) or an Anthropic API key. All agents run on Opus with extended thinking.
 
-Compatible with **Claude Max subscription** — no API key required.
+## Agents
 
-## The Agents
-
-| | Agent | Role | When |
+| | Name | What it does | When |
 |---|---|---|---|
-| 🔥 | **EMBER** | Builder — researches, pitches, evolves ideas, pivots when killed | First, every round |
-| 🔪 | **RAZOR** | Destroyer — finds competitors, market data, fatal flaws, proposes contradicting alternatives | Second, every round |
-| ⚖️ | **JUDGE** | Gatekeeper — rates GARBAGE → WEAK → PROMISING → STRONG → FUCKING BRILLIANT with hard gates | Every 2 rounds |
-| 🐍 | **VIPER** | VC — 8-point due diligence checklist, makes INVEST / PASS / CONDITIONAL decision | After JUDGE passes |
-| 📋 | **PITCH** | Synthesizer — compresses the full session into a wall-pinnable summary with actionable next steps | End of session |
+| 🔥 | EMBER | Pitches, researches, evolves. Kills its own ideas when they're dead. | First every round |
+| 🔪 | RAZOR | Finds the competitors you missed. Finds the company that tried this and died. | Second every round |
+| ⚖️ | JUDGE | Binary pass/fail gates. Can't be charmed. GARBAGE through FUCKING BRILLIANT. | Every 2 rounds |
+| 🐍 | VIPER | Writes a check or walks. 8-point due diligence with web research. | After judge passes |
+| 📋 | PITCH | Compresses everything into one page. Dead ideas, survivor, what to do Monday. | End |
 
-## How It Works
+## Flow
 
 ```mermaid
 flowchart TD
     A["🔥 EMBER pitches"] --> B["🔪 RAZOR attacks"]
     B --> C{"⚖️ JUDGE\nevaluates"}
-    C -->|"not BRILLIANT"| A
-    C -->|"BRILLIANT"| D["🐍 VIPER\nVC review"]
+    C -->|"not good enough"| A
+    C -->|"passed"| D["🐍 VIPER\nVC review"]
     D -->|"INVEST 💰"| F["📋 PITCH\nsummary"]
-    D -->|"CONDITIONAL ⚠️"| E["more sparring\nrounds"]
+    D -->|"CONDITIONAL ⚠️"| E["more rounds"]
     D -->|"PASS ✗"| E
     E --> A
     E --> F
@@ -52,109 +50,90 @@ flowchart TD
     style F fill:#6a1b6a,stroke:#333,color:#fff
 ```
 
-The JUDGE uses **hard gate requirements** — binary checkboxes that must ALL pass before a verdict can be awarded. For example, FUCKING BRILLIANT requires: real human voice validation, RAZOR failed to kill it, competitive moat stress-tested, 18-month plan modeled, and more. No hand-waving past the gates.
+The judge won't give FUCKING BRILLIANT unless every gate passes: a real person (not a market report) has to have expressed the pain, RAZOR has to have tried and failed to kill it, the 18-month plan has to be modeled, the moat has to survive a stress test. There are nine gates total. Miss one, you stay at STRONG.
 
-## Prerequisites
+## Setup
 
-- **Python 3.10+**
-- **[Claude Code](https://claude.ai/code)** — installed and authenticated
+You need Python 3.10+ and [Claude Code](https://claude.ai/code) installed.
 
-### Authentication
+Log in to Claude Code once (opens a browser):
 
-SPAR runs through the Claude Code CLI, so you authenticate the same way you authenticate Claude Code:
-
-**With Claude Max subscription (recommended):**
 ```bash
-claude          # opens browser for OAuth login — do this once
+claude
 ```
 
-**With API key:**
+Or set an API key instead:
+
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
-Both work. Max subscription means no per-token billing — your agents can research as aggressively as they want.
-
-## Install
+Then:
 
 ```bash
-# Clone the repo
 git clone https://github.com/sofianedjerbi/spar.git
 cd spar
-
-# Install dependencies
 pip install claude-agent-sdk rich
 ```
 
-That's it. No config files, no env setup, no Docker.
+That's the whole setup.
 
-## Usage
+## Run it
 
 ```bash
-# Default: 12 rounds, exits on FUCKING BRILLIANT, 2 VC rejection cycles
 python spar.py "your idea here"
-
-# More rounds for complex topics
-python spar.py "your idea" --rounds 20
-
-# Accept STRONG as exit threshold (less strict)
-python spar.py "your idea" --min-verdict strong
-
-# Give the VC more chances to reject and iterate
-python spar.py "your idea" --vc-rounds 4
-
-# Full gauntlet
-python spar.py "your idea" --rounds 20 --vc-rounds 4 --min-verdict brilliant
 ```
 
-Sessions auto-save timestamped transcripts to `sparring_sessions/`.
+Defaults to 12 rounds. Won't stop until the judge says FUCKING BRILLIANT or the rounds run out. If an idea passes, the VC gets 2 chances to reject and send it back for more work.
 
-## Customize Agents
+```bash
+python spar.py "your idea" --rounds 20          # longer session
+python spar.py "your idea" --min-verdict strong  # stop at STRONG instead
+python spar.py "your idea" --vc-rounds 4         # more VC rejection cycles
+```
 
-Every agent's personality, rules, and behavior are defined in standalone markdown files. Edit them directly — no code changes needed.
+Transcripts go to `sparring_sessions/` with timestamps.
+
+## Edit the agents
+
+Each agent is a markdown file in `prompts/`. Change the personality, the rules, the gates, whatever. No code to touch.
 
 ```
 prompts/
-├── research_protocol.md   # shared research budget + workflow (injected into EMBER, RAZOR, VIPER)
-├── ember.md               # builder persona + creation protocol
-├── razor.md               # destroyer persona + destruction protocol
-├── judge.md               # gatekeeper + hard gate requirements + verdict scale
-├── viper.md               # VC due diligence checklist + decision format
-└── pitch.md               # final summary output format
+├── research_protocol.md   # shared research rules, injected into EMBER/RAZOR/VIPER
+├── ember.md
+├── razor.md
+├── judge.md
+├── viper.md
+└── pitch.md
 ```
 
-Want a harsher JUDGE? Edit `judge.md`. Want RAZOR to focus on regulatory risk? Edit `razor.md`. Want to add a new gate requirement for BRILLIANT? Add a checkbox to `judge.md`. The `{RESEARCH_PROTOCOL}` placeholder in agent prompts gets replaced with `research_protocol.md` at runtime.
+`{RESEARCH_PROTOCOL}` in any prompt file gets replaced with `research_protocol.md` at runtime.
 
-## Example Session
+## What a session actually looks like
 
-A session on *"devops business idea in finance"* ran 12 rounds, killed 8 ideas, and produced a validated business:
+Ran "devops business idea in finance" for 12 rounds. Eight ideas died:
 
-**The graveyard:**
-- Generic DevOps consulting — commoditized, offshore shops undercut you
-- Trading infrastructure — Citadel spends $100M/year on 1ms advantages
-- Compliance-as-code SaaS — Checkov + 6 funded competitors already there
-- DORA implementation services — bank procurement takes a year, you're subject to DORA yourself
-- GPU admission controller — Kubecost, CAST AI, Sedai already shipping
-- Trading CI/CD — Blankly built "QuantOps" and went dormant
-- Trading bot monitoring — KillSwitch.in, ALGOGENE already shipping
-- AI governance pivot — completely different career from DevOps
+- DevOps consulting — race to the bottom with offshore shops
+- Trading infra — need $50M+ and FPGA hardware to compete
+- Compliance SaaS — Checkov and six funded companies already there
+- DORA services — bank procurement takes a year, and DORA applies to you too
+- GPU cost gate — Kubecost, CAST AI, Sedai shipped it already
+- Trading CI/CD — Blankly built this exact thing, went dormant
+- Bot monitoring — KillSwitch.in and ALGOGENE already exist
+- AI governance — different career entirely
 
-**The survivor:**
-> Compliance infrastructure implementation practice — $6-10K fixed-price engagements bridging Vanta/Drata's 40-50% automation gap for fintechs with custom payment/fraud/KYC systems. Validated by Upwork marketplace demand (74 active compliance gigs) and EIM Services case study.
+What survived: a compliance infrastructure implementation practice. $6-10K per engagement, bridging the 40-50% gap between what Vanta automates and what auditors require for custom fintech systems. Validated through Upwork demand (74 active gigs) and an EIM Services case study.
 
-**Verdict:** STRONG (not BRILLIANT — hiring plan and breach liability never addressed in 12 rounds)
+Verdict was STRONG. Missed BRILLIANT because EMBER never addressed the hiring plan or what happens if you discover a breach during an engagement. The judge asked four times. EMBER dodged it four times.
 
-**Next steps generated:** Register for AWS Security Specialty, create Upwork profile targeting "SOC 2 compliance engineer Vanta", join Vanta Community Slack, publish LinkedIn post on custom Vanta integrations, email 3 SOC 2 audit firms.
+## Why this works
 
-## How It's Different
+Brainstorming accumulates enthusiasm. This accumulates evidence.
 
-Most brainstorming tools accumulate enthusiasm. SPAR accumulates **earned conviction**.
+Both agents do web searches every round. They cite real companies, real pricing pages, real G2 reviews, real enforcement actions. When RAZOR said Blankly was dead, EMBER went to the actual GitHub repo and the actual website to check. When RAZOR said Vanta's AI would close the gap, EMBER pulled Vanta's February 2026 release notes and showed zero custom infrastructure features shipped.
 
-- Every claim gets web-researched with real sources — no training data opinions
-- Ideas that die get buried honestly with one-line kill reasons
-- The JUDGE can't be charmed — hard gates are binary pass/fail
-- EMBER catches RAZOR fabricating evidence (and vice versa)
-- The final PITCH gives you something actionable, not a pep talk
+The judge tracks which gates pass and which don't across rounds. If the same issue goes unaddressed for two rounds, the verdict gets downgraded. Standing still is moving backwards.
 
 ## License
 
