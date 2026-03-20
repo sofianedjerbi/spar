@@ -83,10 +83,14 @@ python spar.py "your idea here"
 # or paste a long prompt interactively
 python spar.py
 
+# quick validation: 4 rounds, stops at STRONG
+python spar.py --quick "rebate tracker for distributors"
+
 # tweak the session
 python spar.py "idea" --rounds 20           # longer fight
 python spar.py "idea" --min-verdict strong  # stop at STRONG
 python spar.py "idea" --vc-rounds 4         # more VC rejection cycles
+python spar.py "idea" --name "rebate-v2"    # name the session file
 ```
 
 ### After a session
@@ -95,16 +99,20 @@ python spar.py "idea" --vc-rounds 4         # more VC rejection cycles
 # list all past sessions
 python spar.py --list
 
-# ask questions about the latest session
+# ask follow-up questions about the latest session
 python spar.py --ask "what could be improved?"
 python spar.py --ask "how would you monetize this differently?"
-python spar.py --ask "expand on risk #2"
 
 # ask about an older session
 python spar.py --ask "compare this to the latest" --session 2
+
+# continue a session that ended at STRONG (adds 4 more rounds)
+python spar.py --resume
+python spar.py --resume --rounds 8          # more rounds
+python spar.py --resume --session 2         # resume an older session
 ```
 
-Transcripts save to `sparring_sessions/` with timestamps.
+Transcripts save to `sparring_sessions/` with timestamps. Elapsed time shows at the end of each session.
 
 ## Edit the agents
 
