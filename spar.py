@@ -17,6 +17,9 @@ Usage:
     python spar.py --resume --session 2         # continue a specific session
     python spar.py --resume --rounds 8          # continue with 8 more rounds
 
+    python spar.py --scout "constraints here"        # SCOUT hunts for pain, then agents spar
+    python spar.py --scout                           # interactive paste + scout
+
     python spar.py --ask "what could be improved?"           # ask about latest session
     python spar.py --ask "expand on risk #2" --session 3     # ask about a specific session
     python spar.py --list                                    # list all sessions
@@ -51,6 +54,7 @@ def get_arg(flag, default=None, cast=str):
     return default
 
 QUICK_MODE = "--quick" in sys.argv
+SCOUT_MODE = "--scout" in sys.argv
 ROUNDS = get_arg("--rounds", 4 if QUICK_MODE else 12, int)
 VC_MAX_REJECTIONS = get_arg("--vc-rounds", 2, int)
 EXTRA_ROUNDS_PER_REJECTION = 4
@@ -84,6 +88,7 @@ RAZOR = load_prompt("razor")
 EMBER = load_prompt("ember")
 JUDGE = load_prompt("judge")
 VC = load_prompt("viper")
+SCOUT = load_prompt("scout")
 
 # ─── STYLE CONFIG ─────────────────────────────────────────────────────────────
 
@@ -93,6 +98,7 @@ AGENT_STYLES = {
     "JUDGE": {"border": "cyan", "icon": "⚖️ ", "title_style": "bold cyan"},
     "VIPER": {"border": "green", "icon": "🐍", "title_style": "bold green"},
     "PITCH": {"border": "magenta", "icon": "📋", "title_style": "bold magenta"},
+    "SCOUT": {"border": "blue", "icon": "🔭", "title_style": "bold blue"},
     "ASK": {"border": "white", "icon": "🔍", "title_style": "bold white"},
 }
 
@@ -432,9 +438,30 @@ async def run_final_pitch(premise: str, transcript: list) -> str:
     return pitch_response
 
 
+# ─── SCOUT PHASE ──────────────────────────────────────────────────────────────
+
+async def run_scout(premise: str, transcript: list) -> str:
+    """Run SCOUT to find pain points before sparring starts. Returns refined premise."""
+    console.print()
+    console.rule("[bold blue]SCOUT PHASE[/bold blue]", style="bold blue")
+    console.print()
+
+    scout_prompt = (
+        f"The user wants you to find problems worth solving. Here are their constraints:\n\n"
+        f"---\n{premise}\n---\n\n"
+        f"Go hunt. Search for real pain with no good solution. Follow your protocol."
+    )
+
+    scout_response = await ask_agent(SCOUT, scout_prompt, "SCOUT", "blue")
+    render_agent("SCOUT", scout_response)
+    transcript.append(f"SCOUT:\n{scout_response}\n")
+
+    return scout_response
+
+
 # ─── MAIN LOOP ────────────────────────────────────────────────────────────────
 
-async def spar(premise: str):
+async def spar(premise: str, use_scout: bool = False):
     start_time = time.time()
     outfile = make_outfile(premise)
 
@@ -445,18 +472,25 @@ async def spar(premise: str):
     transcript.append(f"ROUNDS: {ROUNDS} | MIN VERDICT: {MIN_VERDICT.upper()} | VC MAX REJECTIONS: {VC_MAX_REJECTIONS}")
     transcript.append(f"{'='*70}\n")
 
-    mode_label = "QUICK MODE" if QUICK_MODE else "SPARRING SESSION"
+    mode_label = "SCOUT + SPAR" if use_scout else ("QUICK MODE" if QUICK_MODE else "SPARRING SESSION")
     console.print()
     console.print(Panel(
         f"[dim]Premise:[/dim] {premise}\n"
         f"[dim]Rounds:[/dim] {ROUNDS} | "
         f"[dim]Exit threshold:[/dim] {MIN_VERDICT.upper()} | "
-        f"[dim]VC rejection cycles:[/dim] {VC_MAX_REJECTIONS}",
+        f"[dim]VC rejection cycles:[/dim] {VC_MAX_REJECTIONS}" +
+        ("\n[dim]Scout:[/dim] enabled" if use_scout else ""),
         title=f"⚔️  {mode_label}",
         title_align="left",
         border_style="bold white",
         padding=(1, 2),
     ))
+
+    # ─── Phase 0: Scout (optional) ───
+    if use_scout:
+        scout_output = await run_scout(premise, transcript)
+        # Scout's selected premise becomes EMBER's starting point
+        premise = f"SCOUT found this pain point. The user's original constraints were:\n{premise}\n\nSCOUT's research and selected premise:\n{scout_output}\n\nBuild on SCOUT's finding. Verify it, sharpen it, and pitch it."
 
     # ─── Phase 1: Initial sparring ───
     verdict, razor_h, ember_h, judge_fb, last_round = await run_sparring(
@@ -749,6 +783,8 @@ if __name__ == "__main__":
         asyncio.run(resume_session(session_idx, extra))
         sys.exit(0)
 
+    use_scout = SCOUT_MODE
+
     # --quick grabs the next arg as premise
     if QUICK_MODE:
         quick_idx = sys.argv.index("--quick")
@@ -756,7 +792,7 @@ if __name__ == "__main__":
         if not premise:
             console.print("[red]Usage: python spar.py --quick \"your idea\"[/red]")
             sys.exit(1)
-        asyncio.run(spar(premise))
+        asyncio.run(spar(premise, use_scout=use_scout))
         sys.exit(0)
 
     # Normal mode: premise as arg or interactive
@@ -784,4 +820,4 @@ if __name__ == "__main__":
             console.print("[red]No premise entered. Exiting.[/red]")
             sys.exit(1)
 
-    asyncio.run(spar(premise))
+    asyncio.run(spar(premise, use_scout=use_scout))
