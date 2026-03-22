@@ -107,8 +107,9 @@ MAGENTA = "\033[95m"
 RESET = "\033[0m"
 
 
-def parse_verdict(response: str) -> str:
-    """Extract verdict/decision from ONLY the VERDICT:/DECISION: line."""
+def parse_verdict(response: str) -> tuple:
+    """Extract verdict/decision from ONLY the VERDICT:/DECISION: line.
+    Returns (flow_decision, display_decision) tuple."""
     for line in response.split("\n"):
         line_clean = line.strip()
         match = re.match(
@@ -116,24 +117,26 @@ def parse_verdict(response: str) -> str:
             line_clean, re.IGNORECASE
         )
         if match:
-            return match.group(1).upper()
+            v = match.group(1).upper()
+            return v, v
         match = re.match(
             r'^DECISION:\s*\*{0,2}\s*(INVEST|PASS|PURSUE|BUILD|MODIFY|REJECT|CONDITIONAL(?:\s*[—\-]\s*NEEDS MORE WORK)?)\s*\*{0,2}\s*$',
             line_clean, re.IGNORECASE
         )
         if match:
             raw = match.group(1).upper().strip()
+            display = raw.split("—")[0].split("-")[0].strip() if raw.startswith("CONDITIONAL") else raw
+            # Map to flow equivalents
             if raw.startswith("CONDITIONAL"):
-                return "CONDITIONAL"
-            # Map career/bootstrap decisions to the flow equivalents
+                return "CONDITIONAL", display
             if raw in ("PURSUE", "BUILD"):
-                return "INVEST"
-            if raw in ("REJECT",):
-                return "PASS"
-            if raw in ("MODIFY",):
-                return "CONDITIONAL"
-            return raw
-    return "UNPARSEABLE"
+                return "INVEST", raw
+            if raw == "REJECT":
+                return "PASS", raw
+            if raw == "MODIFY":
+                return "CONDITIONAL", raw
+            return raw, raw
+    return "UNPARSEABLE", "UNPARSEABLE"
 
 
 def render_agent(label: str, text: str):
@@ -360,7 +363,7 @@ async def run_sparring(premise: str, transcript: list, start_round: int,
             render_agent("JUDGE", judge_response)
             transcript.append(f"JUDGE (Round {round_num}):\n{judge_response}\n")
 
-            parsed = parse_verdict(judge_response)
+            parsed, _ = parse_verdict(judge_response)
 
             if parsed == "GARBAGE":
                 verdict = "GARBAGE"
@@ -433,8 +436,8 @@ async def run_vc_review(premise: str, transcript: list, attempt: int) -> tuple:
     render_agent("VIPER", vc_response)
     transcript.append(f"VIPER (VC Review {attempt}):\n{vc_response}\n")
 
-    decision = parse_verdict(vc_response)
-    return decision, vc_response
+    decision, display_decision = parse_verdict(vc_response)
+    return decision, vc_response, display_decision
 
 
 # ─── FINAL PITCH ──────────────────────────────────────────────────────────────
@@ -551,21 +554,24 @@ async def spar(premise: str, use_scout: bool = False):
 
     # ─── Phase 2: VC review loop ───
     final_decision = "PASS"
+    final_display = "PASS"
     vc_rejection_feedback = ""
 
     for vc_attempt in range(1, VC_MAX_REJECTIONS + 2):
-        decision, vc_response = await run_vc_review(premise, transcript, vc_attempt)
+        decision, vc_response, display_dec = await run_vc_review(premise, transcript, vc_attempt)
 
         if decision == "INVEST":
             final_decision = "INVEST"
+            final_display = display_dec
             console.print()
-            console.print(Panel("[bold green]💰 DECISION: INVEST — THE VC IS IN 💰[/bold green]",
+            console.print(Panel(f"[bold green]💰 DECISION: {display_dec} 💰[/bold green]",
                                 border_style="bold green", padding=(1, 4)))
             break
         elif decision == "PASS":
             final_decision = "PASS"
+            final_display = display_dec
             console.print()
-            console.print(Panel("[bold red]✗ DECISION: PASS — THE VC WALKED AWAY[/bold red]",
+            console.print(Panel(f"[bold red]✗ DECISION: {display_dec}[/bold red]",
                                 border_style="bold red", padding=(1, 4)))
             if vc_attempt <= VC_MAX_REJECTIONS:
                 console.print(f"  [dim]VC rejected. {EXTRA_ROUNDS_PER_REJECTION} more rounds "
@@ -580,8 +586,9 @@ async def spar(premise: str, use_scout: bool = False):
                 break
         elif decision == "CONDITIONAL":
             final_decision = "CONDITIONAL"
+            final_display = display_dec
             console.print()
-            console.print(Panel("[bold yellow]⚠ DECISION: CONDITIONAL — NEEDS MORE WORK[/bold yellow]",
+            console.print(Panel(f"[bold yellow]⚠ DECISION: {display_dec}[/bold yellow]",
                                 border_style="bold yellow", padding=(1, 4)))
             if vc_attempt <= VC_MAX_REJECTIONS:
                 console.print(f"  [dim]VC wants more work. {EXTRA_ROUNDS_PER_REJECTION} more rounds "
@@ -596,6 +603,7 @@ async def spar(premise: str, use_scout: bool = False):
                 break
         else:
             final_decision = "CONDITIONAL"
+            final_display = display_dec
             if vc_attempt <= VC_MAX_REJECTIONS:
                 vc_rejection_feedback = vc_response
                 verdict, razor_h, ember_h, judge_fb, last_round = await run_sparring(
@@ -610,7 +618,7 @@ async def spar(premise: str, use_scout: bool = False):
 
     elapsed = time.time() - start_time
     transcript.append(f"\n{'='*70}")
-    transcript.append(f"FINAL VC DECISION: {final_decision}")
+    transcript.append(f"FINAL VC DECISION: {final_display}")
     transcript.append(f"TOTAL ROUNDS: {last_round}")
     transcript.append(f"{'='*70}")
 
@@ -619,7 +627,7 @@ async def spar(premise: str, use_scout: bool = False):
     d_color = "green" if final_decision == "INVEST" else "yellow" if final_decision == "CONDITIONAL" else "red"
     console.print()
     console.print(Panel(
-        f"[bold]VC Decision: [{d_color}]{final_decision}[/{d_color}][/bold]\n"
+        f"[bold]VC Decision: [{d_color}]{final_display}[/{d_color}][/bold]\n"
         f"[dim]Rounds: {last_round} | Time: {format_duration(elapsed)} | Saved: {outfile.name}[/dim]",
         title="SESSION COMPLETE",
         title_align="left",
